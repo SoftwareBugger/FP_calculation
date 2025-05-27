@@ -237,8 +237,8 @@ def generate_fp8_add_golden(e_bits, m_bits, count=1000):
     
     with open(pattern_file, 'w') as pf, open(decimal_file, 'w') as df:
         for _ in range(count):
-            a = random.uniform(-1, 1)
-            b = random.uniform(-1, 1)
+            a = random.uniform(-8.0, 8.0)
+            b = random.uniform(-8.0, 8.0)
             a_q = quantize_to_fp8(a, e_bits, m_bits)
             b_q = quantize_to_fp8(b, e_bits, m_bits)
             # Perform addition in float32 then quantize back
@@ -349,10 +349,10 @@ def generate_vectorized_fp8_add_golden(e_bits, m_bits, count=1000):
     with open(pattern_file, 'w') as pf, open(decimal_file, 'w') as df:
         for _ in range(count):
             # generate two lane inputs
-            a0 = random.uniform(-1, 1)
-            b0 = random.uniform(-1, 1)
-            a1 = random.uniform(-1, 1)
-            b1 = random.uniform(-1, 1)
+            a0 = random.uniform(-8.0, 16.0)
+            b0 = random.uniform(-8.0, 16.0)
+            a1 = random.uniform(-8.0, 16.0)
+            b1 = random.uniform(-8.0, 16.0)
             
             # quantize to FP8 bits
             a0_q = quantize_to_fu(a0, e_bits, m_bits)
@@ -392,10 +392,10 @@ def generate_vectorized_fp8_mul_golden(e_bits, m_bits, count=1000):
     with open(pattern_file, 'w') as pf, open(decimal_file, 'w') as df:
         for _ in range(count):
             # generate two lane inputs
-            a0 = random.uniform(-1, 1)
-            b0 = random.uniform(-1, 1)
-            a1 = random.uniform(-1, 1)
-            b1 = random.uniform(-1, 1)
+            a0 = random.uniform(-16.0, 16.0)
+            b0 = random.uniform(-16.0, 16.0)
+            a1 = random.uniform(-16.0, 16.0)
+            b1 = random.uniform(-16.0, 16.0)
 
             # quantize to FP8 bits
             a0_q = quantize_to_fu(a0, e_bits, m_bits)
@@ -431,6 +431,155 @@ def generate_vectorized_fp8_mul_golden(e_bits, m_bits, count=1000):
             )
     print(f"Generated {pattern_file} and {decimal_file} for E{e_bits}M{m_bits}")
 
+def pack_vec2(a_bits: int, b_bits: int, width: int) -> int:
+    """Pack two lane‑width patterns into a 2×width‑bit word."""
+    return (a_bits << width) | b_bits
+
+def write_pattern_decimal(
+    pf, df,
+    a_vec: int, b_vec: int, r_vec: int,
+    a0_bits:int, b0_bits:int, r0_bits:int,
+    a1_bits:int, b1_bits:int, r1_bits:int,
+    e_bits:int, m_bits:int
+):
+    width = e_bits + m_bits + 1
+    fmt = f"0{2*width}b"
+    pf.write(f"{format(a_vec,fmt)}_{format(b_vec,fmt)}_{format(r_vec,fmt)}_1\n")
+    df.write(
+        f"A0=0b{a0_bits:0{width}b}({dequantize_fu(a0_bits,e_bits,m_bits):.6g}) "
+        f"* B0=0b{b0_bits:0{width}b}({dequantize_fu(b0_bits,e_bits,m_bits):.6g}) "
+        f"= R0=0b{r0_bits:0{width}b}({dequantize_fu(r0_bits,e_bits,m_bits):.6g}); "
+        f"A1=0b{a1_bits:0{width}b}({dequantize_fu(a1_bits,e_bits,m_bits):.6g}) "
+        f"* B1=0b{b1_bits:0{width}b}({dequantize_fu(b1_bits,e_bits,m_bits):.6g}) "
+        f"= R1=0b{r1_bits:0{width}b}({dequantize_fu(r1_bits,e_bits,m_bits):.6g})\n"
+    )
+
+def generate_fp8x2_zero_cases(e_bits, m_bits):
+    """Edge cases where one or both lanes are zero ±0."""
+    width = e_bits + m_bits + 1
+    pattern_file = f"fp8x2_zero_E{e_bits}M{m_bits}_pattern.txt"
+    decimal_file = f"fp8x2_zero_E{e_bits}M{m_bits}_decimal.txt"
+
+    zero_p = quantize_to_fu(0.0, e_bits, m_bits)
+    negz_p = quantize_to_fu(-0.0, e_bits, m_bits)
+
+    cases = [
+        (zero_p, zero_p),
+        (zero_p, negz_p),
+        (negz_p, zero_p),
+        (negz_p, negz_p),
+    ]
+
+    with open(pattern_file,'w') as pf, open(decimal_file,'w') as df:
+        for a0,b0 in cases:
+            for a1,b1 in cases:
+                r0 = quantize_to_fu(
+                    dequantize_fu(a0,e_bits,m_bits) * dequantize_fu(b0,e_bits,m_bits),
+                    e_bits,m_bits
+                )
+                r1 = quantize_to_fu(
+                    dequantize_fu(a1,e_bits,m_bits) * dequantize_fu(b1,e_bits,m_bits),
+                    e_bits,m_bits
+                )
+                a_vec = pack_vec2(a1,a0,width)
+                b_vec = pack_vec2(b1,b0,width)
+                r_vec = pack_vec2(r1,r0,width)
+                write_pattern_decimal(pf, df,
+                    a_vec, b_vec, r_vec,
+                    a0,b0,r0, a1,b1,r1,
+                    e_bits,m_bits
+                )
+    print(f"Written zero cases → {pattern_file}, {decimal_file}")
+
+
+def generate_fp8x2_subnormal_cases(e_bits, m_bits):
+    """Edge cases for subnormals: exp_field=0, mantissa≠0."""
+    width = e_bits + m_bits + 1
+    pattern_file = f"fp8x2_denorm_E{e_bits}M{m_bits}_pattern.txt"
+    decimal_file = f"fp8x2_denorm_E{e_bits}M{m_bits}_decimal.txt"
+
+    # all nonzero mantissas with exp=0 are subnormals
+    denorms = [ (1<< (m_bits - 1)) - 1 ]  # just pick the smallest positive mantissa=1
+    # you could expand to all [1..(1<<m_bits)-1] if you like
+
+    sub_list = []
+    for frac in denorms:
+        # positive, then negative
+        bits_p = (0 << (e_bits + m_bits)) | frac
+        bits_n = bits_p | (1 << (e_bits + m_bits))
+        sub_list.extend([bits_p, bits_n])
+
+    with open(pattern_file,'w') as pf, open(decimal_file,'w') as df:
+        for a0 in sub_list:
+            for b0 in sub_list:
+                # multiply two subnormals
+                r0 = quantize_to_fu(
+                    dequantize_fu(a0,e_bits,m_bits)*dequantize_fu(b0,e_bits,m_bits),
+                    e_bits,m_bits
+                )
+                # mix with a normal lane
+                a1 = quantize_to_fu(1.0, e_bits, m_bits)
+                b1 = quantize_to_fu(2.0, e_bits, m_bits)
+                r1 = quantize_to_fu(
+                    dequantize_fu(a1,e_bits,m_bits)*dequantize_fu(b1,e_bits,m_bits),
+                    e_bits,m_bits
+                )
+
+                a_vec = pack_vec2(a1,a0,width)
+                b_vec = pack_vec2(b1,b0,width)
+                r_vec = pack_vec2(r1,r0,width)
+                write_pattern_decimal(pf, df, a_vec, b_vec, r_vec,
+                    a0,b0,r0, a1,b1,r1, e_bits,m_bits
+                )
+    print(f"Written subnormal cases → {pattern_file}, {decimal_file}")
+
+
+def generate_fp8x2_overflow_inf_nan_cases(e_bits, m_bits):
+    """Edge cases for overflow → Inf, and NaN handling."""
+    width = e_bits + m_bits + 1
+    pattern_file = f"fp8x2_infnan_E{e_bits}M{m_bits}_pattern.txt"
+    decimal_file = f"fp8x2_infnan_E{e_bits}M{m_bits}_decimal.txt"
+
+    maxf = (1<<e_bits) - 2  # exp=all1-1
+    max_frac = (1<<m_bits) - 1
+    inf_bits = ((0)<< (e_bits+m_bits)) | (((1<<e_bits)-1)<<m_bits) | 0
+    nan_bits = ((0)<< (e_bits+m_bits)) | (((1<<e_bits)-1)<<m_bits) | 1
+
+    normals = [
+        # largest finite positive and negative
+        ((0<<(e_bits+m_bits)) | (maxf<<m_bits) | max_frac),
+        (1<<(e_bits+m_bits)) | (maxf<<m_bits) | max_frac
+    ]
+    specials = [inf_bits, nan_bits]
+
+    with open(pattern_file,'w') as pf, open(decimal_file,'w') as df:
+        # overflow → expect ±Inf
+        for a0 in normals:
+            for b0 in normals:
+                r0 = inf_bits  # overflow
+                # lane1 mix: normal * 1.0
+                a1 = a0
+                b1 = quantize_to_fu(1.0, e_bits, m_bits)
+                r1 = a1  # unchanged
+                a_vec = pack_vec2(a1,a0,width)
+                b_vec = pack_vec2(b1,b0,width)
+                r_vec = pack_vec2(r1,r0,width)
+                write_pattern_decimal(pf, df, a_vec, b_vec, r_vec,
+                    a0,b0,r0, a1,b1,r1, e_bits,m_bits
+                )
+        # NaN propagation
+        for s in specials:
+            # NaN * anything → NaN
+            a0 = s; b0 = quantize_to_fu(1.0,e_bits,m_bits)
+            r0 = nan_bits
+            a1 = quantize_to_fu(2.0,e_bits,m_bits); b1 = s; r1 = nan_bits
+            a_vec = pack_vec2(a1,a0,width)
+            b_vec = pack_vec2(b1,b0,width)
+            r_vec = pack_vec2(r1,r0,width)
+            write_pattern_decimal(pf, df, a_vec, b_vec, r_vec,
+                a0,b0,r0, a1,b1,r1, e_bits,m_bits
+            )
+    print(f"Written Inf/NaN cases → {pattern_file}, {decimal_file}")
 
 if __name__ == "__main__":
     generate_mul_golden()
@@ -444,6 +593,15 @@ if __name__ == "__main__":
     generate_vectorized_fp8_add_golden(5, 2)
     generate_vectorized_fp8_mul_golden(4, 3)
     generate_vectorized_fp8_mul_golden(5, 2)
+    # Generate zero cases
+    generate_fp8x2_zero_cases(4, 3)
+    generate_fp8x2_zero_cases(5, 2)
+    # Generate subnormal cases
+    generate_fp8x2_subnormal_cases(4, 3)
+    generate_fp8x2_subnormal_cases(5, 2)
+    # Generate overflow/inf/nan cases
+    generate_fp8x2_overflow_inf_nan_cases(4, 3)
+    generate_fp8x2_overflow_inf_nan_cases(5, 2)
 
 
 

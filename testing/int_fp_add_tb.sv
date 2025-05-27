@@ -1,4 +1,10 @@
-`define PATTERN "C:/intelFPGA/18.1/mult_fp16_golden_pattern.txt"
+//`define PATTERN "C:/intelFPGA/18.1/mult_fp16_golden_pattern.txt"
+//`define PATTERN "C:/intelFPGA/18.1/mul_fp8x2_E5M2_pattern.txt"
+//`define PATTERN "C:/intelFPGA/18.1/mul_fp8x2_E4M3_pattern.txt"
+//`define PATTERN "C:/intelFPGA/18.1/add_fp8x2_E4M3_pattern.txt"
+//`define PATTERN "C:/intelFPGA/18.1/add_fp16_golden_pattern.txt"
+//`define PATTERN "fp8x2_infnan_E4M3_pattern.txt"
+`define PATTERN "fp8x2_zero_E5M2_pattern.txt"
 `define PATTERN_NUM 1000
 module int_fp_add_tb ();
 
@@ -11,10 +17,14 @@ reg [10:0] error_cnt;
 integer i, j;
 
 wire [15:0] result;
-// FP_add u1 (.i_a(input1),.i_b(input2), .fp8(1'b1), .e5m2(1'b0), .o_c(result));
-// Float16Add u1 (input1, input2, result);
-Float16Mul u1 (.i_a(input1),.i_b(input2), .fp8(1'b0), .e5m2(1'b1), .o_c(result));
-
+//FP_add u1 (.i_a(input1),.i_b(input2), .fp8(1'b1), .e5m2(1'b0), .o_c(result));
+//Float16Add u1 (input1, input2, result);
+FloatMul u1 (.i_a(input1),.i_b(input2), .fp8(1'b1), .e5m2(1'b1), .o_c(result));
+// Float16Mul u1 (
+//     .floatA(input1),
+//     .floatB(input2),
+//     .product(result)
+// );
 initial begin
     j = $fopen("./result_analysis.txt", "w");
     error_cnt = 0;

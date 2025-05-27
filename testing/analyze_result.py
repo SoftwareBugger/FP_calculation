@@ -73,6 +73,12 @@ def analyze_file(path: str, mode: str, e_bits: int, m_bits: int):
     max_abs_err = max_ulp_err = 0.0
     max_percent_err = 0.0
     average_percent_err = 0.0
+    worst_percent_expected = ""
+    worst_percent_actual = ""
+    worst_ULP_expected = ""
+    worst_ULP_actual = ""
+    worse_abs_expected = ""
+    worse_abs_actual = ""
 
     with open(path, 'r') as f:
         for lineno, line in enumerate(f, start=1):
@@ -102,12 +108,22 @@ def analyze_file(path: str, mode: str, e_bits: int, m_bits: int):
                 ulp_err = abs_err / spacing if spacing > 0 else float('inf')
                 percent_err = abs_err / abs(expected) if expected != 0 else 0.0
                 average_percent_err += percent_err
+                if percent_err*100 > max_percent_err:
+                    worst_percent_actual = actual#abits
+                    worst_percent_expected = expected#ebits
                 max_percent_err = max(max_percent_err, percent_err*100.0)
+
 
                 total += 1
                 sum_abs_err += abs_err
                 sum_ulp_err += ulp_err
+                if abs_err > max_abs_err:
+                    worse_abs_expected = f"{ebits} ({expected:.6e})"
+                    worse_abs_actual = f"{abits} ({actual:.6e})"
                 max_abs_err = max(max_abs_err, abs_err)
+                if ulp_err > max_ulp_err:
+                    worst_ULP_actual = f"{abits} ({actual:.6e})"
+                    worst_ULP_expected = f"{ebits} ({expected:.6e})"
                 max_ulp_err = max(max_ulp_err, ulp_err)
 
     if total == 0:
@@ -127,6 +143,12 @@ def analyze_file(path: str, mode: str, e_bits: int, m_bits: int):
     print(f"Maximum ULP error: {max_ulp_err:.4f}")
     print(f"Average percent error: {avg_percent_err:.4f}%")
     print(f"Maximum percent error: {max_percent_err:.4f}%")
+    print(f"Worst percent error expected: {worst_percent_expected}")
+    print(f"Worst percent error actual: {worst_percent_actual}")
+    print(f"Worst ULP error expected: {worst_ULP_expected}")
+    print(f"Worst ULP error actual: {worst_ULP_actual}")
+    print(f"Worst absolute error expected: {worse_abs_expected}")
+    print(f"Worst absolute error actual: {worse_abs_actual}")
 
 def main():
     parser = argparse.ArgumentParser(description="FP error analysis (abs + ULP)")
