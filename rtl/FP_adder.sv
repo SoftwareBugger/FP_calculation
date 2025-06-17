@@ -17,16 +17,17 @@ module FP_adder #(
     logic gt2; // if a > b
     logic result_sign;
     logic result_sign2;
-    logic [3:0] shft_amt;
-    logic [3:0] shft_amt2;
-    adder #(.WIDTH(5)) adder1 (
+    logic [5:0] shft_amt;
+    logic [5:0] shft_amt2;
+
+    adder #(.WIDTH(6)) adder1 (
         .a(exp_gt),
         .b(-exp_ls),
         .cin(1'b0),
         .sum(shft_amt),
         .cout()
     );
-    adder #(.WIDTH(5)) adder2 (
+    adder #(.WIDTH(6)) adder2 (
         .a(exp_gt2),
         .b(-exp_ls2),
         .cin(1'b0),
@@ -383,7 +384,5 @@ module FP_adder #(
             end
         end
     end
-
-
-
+    
 endmodule

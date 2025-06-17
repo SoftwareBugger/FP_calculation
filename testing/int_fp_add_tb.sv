@@ -2,9 +2,9 @@
 //`define PATTERN "C:/intelFPGA/18.1/mul_fp8x2_E5M2_pattern.txt"
 //`define PATTERN "C:/intelFPGA/18.1/mul_fp8x2_E4M3_pattern.txt"
 //`define PATTERN "C:/intelFPGA/18.1/add_fp8x2_E4M3_pattern.txt"
-//`define PATTERN "C:/intelFPGA/18.1/add_fp16_golden_pattern.txt"
+`define PATTERN "C:/intelFPGA/18.1/add_fp16_golden_pattern.txt"
 //`define PATTERN "fp8x2_infnan_E4M3_pattern.txt"
-`define PATTERN "fp8x2_zero_E5M2_pattern.txt"
+//`define PATTERN "fp8x2_zero_E5M2_pattern.txt"
 `define PATTERN_NUM 1000
 module int_fp_add_tb ();
 

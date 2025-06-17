@@ -61,20 +61,35 @@ module FP_add (
 
     logic [10:0] mant_a, mant_b;      // 1 hidden + 3 frac bits
     logic [10:0] mant_a2, mant_b2;      // 1 hidden + 3 frac bits
+    // always_comb begin : get_mant
+    //     // rebuild “hidden+explicit” mantissas
+    //     mant_a = fp8 ? e5m2 ? {1'b1, frac_gt[0 +: 2]} 
+    //                         : {1'b1, frac_gt[0 +: 3]} 
+    //                  : {1'b1, frac_gt};
+    //     mant_b = fp8 ? e5m2 ? {1'b1, frac_ls[0 +: 2]} 
+    //                         : {1'b1, frac_ls[0 +: 3]} 
+    //                  : {1'b1, frac_ls};
+    //     mant_a2 = fp8 ? e5m2 ? {1'b1, frac_gt2[0 +: 2]} 
+    //                         : {1'b1, frac_gt2[0 +: 3]} 
+    //                  : {1'b1, frac_gt2};
+    //     mant_b2 = fp8 ? e5m2 ? {1'b1, frac_ls2[0 +: 2]} 
+    //                         : {1'b1, frac_ls2[0 +: 3]}
+    //                  : {1'b1, frac_ls2};
+    // end
     always_comb begin : get_mant
         // rebuild “hidden+explicit” mantissas
-        mant_a = fp8 ? e5m2 ? {1'b1, frac_gt[0 +: 2]} 
-                            : {1'b1, frac_gt[0 +: 3]} 
-                     : {1'b1, frac_gt};
-        mant_b = fp8 ? e5m2 ? {1'b1, frac_ls[0 +: 2]} 
-                            : {1'b1, frac_ls[0 +: 3]} 
-                     : {1'b1, frac_ls};
-        mant_a2 = fp8 ? e5m2 ? {1'b1, frac_gt2[0 +: 2]} 
-                            : {1'b1, frac_gt2[0 +: 3]} 
-                     : {1'b1, frac_gt2};
-        mant_b2 = fp8 ? e5m2 ? {1'b1, frac_ls2[0 +: 2]} 
-                            : {1'b1, frac_ls2[0 +: 3]}
-                     : {1'b1, frac_ls2};
+        mant_a = fp8 ? e5m2 ? {|exp_gt, frac_gt[0 +: 2]} 
+                            : {|exp_gt, frac_gt[0 +: 3]} 
+                     : {|exp_gt, frac_gt};
+        mant_b = fp8 ? e5m2 ? {|exp_ls, frac_ls[0 +: 2]} 
+                            : {|exp_ls, frac_ls[0 +: 3]} 
+                     : {|exp_ls, frac_ls};
+        mant_a2 = fp8 ? e5m2 ? {|exp_gt2, frac_gt2[0 +: 2]} 
+                            : {|exp_gt2, frac_gt2[0 +: 3]} 
+                     : {|exp_gt2, frac_gt2};
+        mant_b2 = fp8 ? e5m2 ? {|exp_ls2, frac_ls2[0 +: 2]} 
+                            : {|exp_ls2, frac_ls2[0 +: 3]}
+                     : {|exp_ls2, frac_ls2};
     end
 
 
