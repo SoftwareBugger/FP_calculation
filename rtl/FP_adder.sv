@@ -1,6 +1,4 @@
-module FP_adder #(
-    
-)(
+module FP_adder (
     input [15:0] i_a,
     input [15:0] i_b,
     input fp8,
